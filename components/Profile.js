@@ -14,6 +14,7 @@ import {
   updateProfileInfo,
   updatePostUserName,
   updateUserFollowingName,
+  updateUserSharedName,
 } from '../http.service';
 
 class Profile extends Component {
@@ -134,6 +135,10 @@ class Profile extends Component {
             console.log(err);
           },
         );
+
+        updateUserSharedName(this.props.usrid, this.state.name).catch(err => {
+          console.log(err);
+        });
       }
     }
   };

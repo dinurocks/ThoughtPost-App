@@ -11,8 +11,24 @@ export const checkUserMobPassword = data => {
   return axios.put('http://192.168.0.108:3003/loginCheck', data);
 };
 
-export const saveUserPost = data => {
-  return axios.post(baseURL + 'feedPost', data);
+export const saveUserPost = formData => {
+  // const config = {
+  //   headers: {
+  //     'Content-Type':
+  //       'multipart/form-data; charset=utf-8; boundary="another cool boundary";',
+  //   },
+  // };
+  return axios.post(
+    baseURL + 'feedPost',
+    formData,
+
+    // {
+    //   headers: {
+    //     'content-type': 'multipart/form-data',
+    //     Accept: 'multipart/form-data',
+    //   },
+    // }
+  );
 };
 
 export const showUserPost = () => {
@@ -61,6 +77,16 @@ export const updatePostUserName = (id, name) => {
 
 export const updateUserFollowingName = (id, name) => {
   return axios.get(baseURL + 'updateUserFollowingName', {
+    params: {id, name},
+  });
+};
+
+export const getPostImages = () => {
+  return axios.get(baseURL + 'getPostImages');
+};
+
+export const updateUserSharedName = (id, name) => {
+  return axios.get(baseURL + 'updateUserSharedName', {
     params: {id, name},
   });
 };

@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React, {PureComponent} from 'react';
 import {
   View,
   TextInput,
@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  Image,
+  Dimensions,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 
 import {Card, SearchBar, ListItem, Overlay} from 'react-native-elements';
@@ -18,13 +22,15 @@ import {
   getRegisteredUsers,
   updateFollowUsers,
   updateSharedPosts,
+  getPostImages,
 } from '../http.service';
 import {connect} from 'react-redux';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Ionicon from 'react-native-vector-icons/Ionicons';
 import {withNavigationFocus} from 'react-navigation';
+import ImagePicker from 'react-native-image-picker';
 
-class Post extends Component {
+class Post extends PureComponent {
   constructor(props) {
     super(props);
     this.refreshFeed();
@@ -43,6 +49,9 @@ class Post extends Component {
       shareButtonText: false,
       compareName: '',
       token: this.props.token,
+      postImagesData: [],
+      file: '',
+      postLoading: false,
     };
   }
 
@@ -51,23 +60,49 @@ class Post extends Component {
   };
 
   post = () => {
-    if (this.state.post.length > 0) {
-      saveUserPost({
-        showtkn: this.state.showtkn,
-        id: this.state.usrid,
-        post: this.state.post,
-      })
-        .then(res => {
-          this.textInput.clear();
-          this.setState({post: ''});
+    let fd = new FormData();
+    let img = this.state.file;
+    fd.append('id', this.props.usrid);
+    fd.append('post', this.state.post);
+    this.state.file &&
+      fd.append('myImage', {
+        name: img.fileName,
+        type: img.type,
+        uri:
+          Platform.OS === 'android' ? img.uri : img.uri.replace('file://', ''),
+        // img.uri,
+      });
 
-          this.refreshFeed();
-        })
-        .catch(err => {
-          console.log('Post error', err);
-        });
-      this.refreshFeed();
-    }
+    this.setState({postLoading: true});
+
+    console.log('newFD', fd);
+    saveUserPost(fd)
+      .then(res1 => {
+        // alert('Posted');
+        this.refreshFeed();
+        this.setState({post: '', file: '', postLoading: false});
+        // this.textInput.clear();
+        getRegisteredUsers()
+          .then(res => {
+            this.setState({registeredUsers: res.data});
+            let name1 = this.state.registeredUsers.filter(
+              user => user._id === this.props.usrid,
+            );
+            let name2 = name1.map(x => x.name);
+            this.setState({compareName: name2[0]});
+            this.refreshFeed();
+          })
+
+          .catch(err => {
+            console.log(err);
+          });
+      })
+      .catch(err => {
+        if (err.response) {
+          console.log(err.response.data);
+        } else console.log('Post error', err);
+      });
+    this.refreshFeed();
   };
 
   componentDidMount() {
@@ -85,6 +120,10 @@ class Post extends Component {
       .catch(err => {
         console.log(err);
       });
+
+    // getPostImages().then(res => {
+    //   this.setState({postImagesData: res.data});
+    // });
   }
 
   refreshFeed = () => {
@@ -216,6 +255,32 @@ class Post extends Component {
     }
   }
 
+  uploadImage = () => {
+    const options = {
+      noData: true,
+    };
+    ImagePicker.showImagePicker(options, response => {
+      // console.log('Response = ', response);
+
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+        this.setState({file: ''});
+      } else if (response.error) {
+        console.log('ImagePicker Error: ', response.error);
+      } else {
+        // const source = {uri: response.uri};
+
+        // You can also display the image using data:
+        // const source = { uri: 'data:image/jpeg;base64,' + response.data };
+
+        this.setState({
+          file: response,
+        });
+        // console.log('imageselect', this.state.file);
+      }
+    });
+  };
+
   render() {
     let showFollowUsers = [];
     if (this.state.searchFollowUser.length > 0) {
@@ -278,6 +343,7 @@ class Post extends Component {
             _id: sharedPost[0]._id,
             user: sharedPost[0].user,
             post: sharedPost[0].post,
+            postImage: sharedPost[0].postImage,
             time: x.sharedTime,
             likeCount: sharedPost[0].likeCount,
             likes: sharedPost[0].likes,
@@ -292,9 +358,10 @@ class Post extends Component {
     postArray.sort((a, b) => {
       return new Date(b.time) - new Date(a.time);
     });
+    // console.log('pa', postArray);
 
     return (
-      <View style={{flex: 1, backgroundColor: 'rgb(242, 245, 245)'}}>
+      <View style={{flex: 1, backgroundColor: 'rgba(245, 244, 242,0.2)'}}>
         <SearchBar
           placeholder="Search users to follow"
           onChangeText={text => {
@@ -393,11 +460,42 @@ class Post extends Component {
                   onChangeText={text => {
                     this.handleChange('post', text);
                   }}
-                  ref={input => {
-                    this.textInput = input;
-                  }}
+                  // ref={input => {
+                  //   this.textInput = input;
+                  // }}
+                  value={this.state.post}
                 />
-                <TouchableOpacity style={styles.button} onPress={this.post}>
+                <TouchableOpacity
+                  style={
+                    this.state.file
+                      ? [
+                          styles.button,
+                          {backgroundColor: 'green', marginRight: 10},
+                        ]
+                      : [
+                          styles.button,
+                          {marginRight: 10, backgroundColor: 'skyblue'},
+                        ]
+                  }
+                  onPress={this.uploadImage}>
+                  <Icon
+                    name="image"
+                    size={30}
+                    color="white"
+                    style={styles.text}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={
+                    this.state.file === '' && this.state.post.length === 0
+                      ? [styles.button, {backgroundColor: 'lightgrey'}]
+                      : styles.button
+                  }
+                  onPress={this.post}
+                  disabled={
+                    this.state.file === '' && this.state.post.length === 0
+                  }>
                   <Ionicon
                     name="md-send"
                     size={30}
@@ -407,52 +505,109 @@ class Post extends Component {
                 </TouchableOpacity>
               </View>
             </View>
-
+            {this.state.postLoading && (
+              <ActivityIndicator
+                animating={this.state.postLoading}
+                size="large"
+                style={{marginTop: 10}}
+              />
+            )}
             {postArray.length === 0 ? (
-              <Text style={{textAlign: 'center', fontSize: 20, marginTop: 50}}>
-                Follow users to see their posts
-              </Text>
+              <View>
+                <Text
+                  style={{textAlign: 'center', fontSize: 20, marginTop: 50}}>
+                  Follow users to see their posts
+                </Text>
+              </View>
             ) : (
               <FlatList
                 style={styles.flatlist}
                 data={postArray}
+                initialNumToRender={3}
                 renderItem={({item, i}) => (
                   <Card
                     style={{flex: 1}}
                     containerStyle={{
                       flex: 1,
-                      elevation: 20,
-                      backgroundColor: 'rgb(242, 245, 245)',
+                      // elevation: 5,
+                      backgroundColor: 'rgba(245, 245, 245,0.8)',
+                      // boxShadow: '100px 100px 100px 150px #000',
                       marginBottom: 5,
+
                       width: '100%',
                       marginLeft: 0,
                     }}>
                     <Text
                       style={{
                         color: 'skyblue',
-                        fontSize: 15,
+                        fontSize: 18,
+                        fontWeight: 'bold',
                         borderBottomWidth: 0.2,
                         borderColor: 'rgba(0,0,0,0.2)',
+                        // marginBottom: 0,
                       }}>
                       {item.sharedBy ? (
                         <Text>
-                          {' '}
-                          {item.user}{' '}
                           <Text style={{color: 'grey'}}>
-                            {' '}
-                            - (Shared By : {item.sharedBy}){' '}
-                          </Text>{' '}
+                            (Shared By : {item.sharedBy})
+                          </Text>
+                          {'\n'}
+
+                          {item.user}
                         </Text>
                       ) : (
                         item.user
                       )}
+                      {'\n\n'}
+                      <Text
+                        style={{
+                          color: 'black',
+                          fontWeight: 'normal',
+                          // marginBottom: -50,
+                        }}>
+                        {item.post && (
+                          <Text style={styles.postfrmt}>{item.post}</Text>
+                        )}
+                      </Text>
+                      {'\n'}
                     </Text>
-                    <Text style={styles.postfrmt}>{item.post}</Text>
+
+                    <View
+                      style={{
+                        // flex: 1,
+                        alignItems: 'center',
+                        // justifyContent: 'center',
+                        // margin: 0,
+                        // marginTop: -17,
+                        // marginBottom: 5,
+                      }}>
+                      {item.postImage && (
+                        <Image
+                          style={{
+                            height: 400,
+                            // marginTop: -8,
+                            width: 390,
+                            // marginHorizontal: 0,
+
+                            flex: 1,
+                          }}
+                          source={{
+                            uri:
+                              'http://192.168.0.108:3003/static/' +
+                              item.postImage,
+                          }}
+                          resizeMode="center"
+                        />
+                      )}
+                    </View>
+
                     <View
                       style={{
                         flexDirection: 'row',
                         justifyContent: 'space-between',
                         paddingTop: 10,
+                        borderTopWidth: 0.2,
+                        borderColor: 'rgba(0,0,0,0.2)',
                       }}>
                       <View style={{}}>
                         {item.likes &&
@@ -650,11 +805,11 @@ var styles = StyleSheet.create({
 
     fontSize: 18,
     marginTop: 20,
-    marginHorizontal: 5,
+    marginRight: 10,
     backgroundColor: 'white',
     borderRadius: 8,
-
-    width: '85%',
+    alignSelf: 'flex-start',
+    width: '65%',
     elevation: 10,
     borderColor: 'rgb(242, 245, 245)',
     marginLeft: 0,
@@ -684,12 +839,15 @@ var styles = StyleSheet.create({
   },
 
   postfrmt: {
-    fontSize: 18,
-
-    marginTop: 10,
-    minHeight: 100,
-    borderBottomWidth: 0.2,
-    borderColor: 'rgba(0,0,0,0.2)',
+    fontSize: 20,
+    // fontWeight: 'bold',
+    // lineHeight: 40,
+    // marginTop: 50,
+    // marginVertical: 30,
+    // paddingVertical: 30,
+    // minHeight: 50,
+    // borderBottomWidth: 0.2,
+    // borderColor: 'rgba(0,0,0,0.2)',
   },
 
   flatlist: {
