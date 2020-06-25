@@ -8,11 +8,13 @@ import Profile from '../components/Profile';
 import Logout from '../components/Logout';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Register from '../components/Register';
-import {Alert} from 'react-native';
-import {removeToken} from '../http.service';
-import {persistor} from '../index';
-import {Persistor} from 'redux-persist';
-import {logoutAction} from '../actions/action';
+// import {Alert} from 'react-native';
+// import {removeToken} from '../http.service';
+// import {persistor} from '../index';
+// import {Persistor} from 'redux-persist';
+// import {logoutAction} from '../actions/action';
+import ShowMoreLikes from '../components/ShowMoreLikes';
+import SharePost from '../components/SharePost';
 
 const screens = {
   Login: {
@@ -41,10 +43,34 @@ const option = {
   },
 };
 
+const PostsStack = createStackNavigator({
+  Posts: {
+    screen: Posts,
+    navigationOptions: {
+      headerShown: false,
+    },
+  },
+  ShowMoreLikes: {
+    screen: ShowMoreLikes,
+    navigationOptions: {
+      headerTitle: 'Likes',
+      headerTitleAlign: 'center',
+    },
+  },
+  SharePost: {
+    screen: SharePost,
+    navigationOptions: {
+      headerTitle: 'Share',
+      headerTitleAlign: 'center',
+      headerShown: false,
+    },
+  },
+});
+
 const TabNavigator = createBottomTabNavigator(
   {
     Posts: {
-      screen: Posts,
+      screen: PostsStack,
     },
     Profile: {
       screen: Profile,

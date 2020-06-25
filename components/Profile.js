@@ -6,6 +6,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import {connect} from 'react-redux';
 import {
@@ -16,6 +17,8 @@ import {
   updateUserFollowingName,
   updateUserSharedName,
 } from '../http.service';
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import ImagePicker from 'react-native-image-picker';
 
 class Profile extends Component {
   constructor(props) {
@@ -32,6 +35,7 @@ class Profile extends Component {
       nameError: '',
       emailError: '',
       mobileError: '',
+      userPhoto: null,
     };
   }
 
@@ -43,7 +47,9 @@ class Profile extends Component {
           name: this.state.userInfo.name,
           email: this.state.userInfo.email,
           mobile: JSON.stringify(this.state.userInfo.mobile),
+          userPhoto: this.state.userInfo.userPhoto,
         });
+        console.log('SHowPhoto', this.state.userPhoto);
       })
       .catch(err => {
         console.log(err);
@@ -103,11 +109,26 @@ class Profile extends Component {
       this.setState({editable: true, submitText: 'Save'});
     } else {
       if (this.validate()) {
+        let fd = new FormData();
+        fd.append('id', this.props.usrid);
+        fd.append('name', this.state.name);
+        fd.append('email', this.state.email);
+        fd.append('mobile', this.state.mobile);
+        this.state.userPhoto &&
+          fd.append('userPhoto', {
+            name: this.state.userPhoto.fileName,
+            type: this.state.userPhoto.type,
+            uri:
+              Platform.OS === 'android'
+                ? this.state.userPhoto.uri
+                : this.state.userPhoto.uri.replace('file://', ''),
+          });
         updateProfileInfo(
-          this.props.usrid,
-          this.state.name,
-          this.state.email,
-          this.state.mobile,
+          // this.props.usrid,
+          // this.state.name,
+          // this.state.email,
+          // this.state.mobile,
+          fd,
         ).then(res => {
           this.setState({
             editable: false,
@@ -117,6 +138,20 @@ class Profile extends Component {
             mobileError: '',
           });
 
+          this.showUserData()
+            .then(ress => {
+              console.log('onSavePhoto1', this.state.userPhoto);
+              updatePostUserName(
+                this.props.usrid,
+                this.state.name,
+                this.state.userPhoto,
+              ).catch(err => {
+                console.log('onSavePhotoError');
+              });
+            })
+            .catch(err => {
+              console.log();
+            });
           getRegisteredUsers()
             .then(res => {
               this.setState({registeredUsers: res.data});
@@ -126,9 +161,14 @@ class Profile extends Component {
             });
         });
 
-        updatePostUserName(this.props.usrid, this.state.name).catch(err => {
-          console.log(err);
-        });
+        console.log('onSavePhoto', this.state.userPhoto);
+        // updatePostUserName(
+        //   this.props.usrid,
+        //   this.state.name,
+        //   this.state.userPhoto,
+        // ).catch(err => {
+        //   console.log(err);
+        // });
 
         updateUserFollowingName(this.props.usrid, this.state.name).catch(
           err => {
@@ -165,10 +205,60 @@ class Profile extends Component {
     this.showUserData();
   };
 
+  uploadUserPhoto = () => {
+    const options = {
+      noData: true,
+    };
+    ImagePicker.showImagePicker(options, response => {
+      // console.log('Response = ', response);
+
+      if (response.didCancel) {
+        this.setState({userPhoto: null});
+        console.log('User cancelled image picker');
+        this.setState({file: ''});
+      } else if (response.error) {
+        console.log('ImagePicker Error: ', response.error);
+      } else {
+        // const source = {uri: response.uri};
+
+        // You can also display the image using data:
+        // const source = { uri: 'data:image/jpeg;base64,' + response.data };
+
+        this.setState({
+          userPhoto: response,
+        });
+        console.log('imageselect', this.state.userPhoto.uri);
+      }
+    });
+  };
+
   render() {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>User Info</Text>
+        <View style={{alignItems: 'center', marginBottom: 20}}>
+          <Text> </Text>
+          <Image
+            style={{width: 80, height: 80}}
+            source={
+              this.state.userPhoto
+                ? {
+                    uri:
+                      'http://192.168.0.108:3003/static/' +
+                      this.state.userPhoto,
+                  }
+                : require('../images/user.png')
+            }
+            resizeMode="cover"
+            borderRadius={40}
+          />
+          <TouchableOpacity
+            style={{marginTop: -20, marginLeft: 50}}
+            onPress={this.uploadUserPhoto}
+            disabled={!this.state.editable}>
+            <Icon name="camera" size={25} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.alignContent}>
           <Text style={styles.text}>Name</Text>
           <TextInput
@@ -256,7 +346,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 30,
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
     fontWeight: 'bold',
     textShadowColor: 'rgb(242, 245, 245)',
     textShadowOffset: {width: 3, height: 1},

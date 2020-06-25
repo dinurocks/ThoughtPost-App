@@ -11,6 +11,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 
 import {Card, SearchBar, ListItem, Overlay} from 'react-native-elements';
@@ -29,6 +30,9 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import Ionicon from 'react-native-vector-icons/Ionicons';
 import {withNavigationFocus} from 'react-navigation';
 import ImagePicker from 'react-native-image-picker';
+import moment from 'moment';
+
+import ShowMoreLikes from '../components/ShowMoreLikes';
 
 class Post extends PureComponent {
   constructor(props) {
@@ -52,6 +56,8 @@ class Post extends PureComponent {
       postImagesData: [],
       file: '',
       postLoading: false,
+      showMoreLikeName: [],
+      showLikeModal: false,
     };
   }
 
@@ -60,6 +66,10 @@ class Post extends PureComponent {
   };
 
   post = () => {
+    let userImage = this.state.registeredUsers.filter(
+      x => x._id === this.props.usrid,
+    );
+
     let fd = new FormData();
     let img = this.state.file;
     fd.append('id', this.props.usrid);
@@ -72,6 +82,7 @@ class Post extends PureComponent {
           Platform.OS === 'android' ? img.uri : img.uri.replace('file://', ''),
         // img.uri,
       });
+    fd.append('userPhoto', userImage[0].userPhoto);
 
     this.setState({postLoading: true});
 
@@ -205,8 +216,13 @@ class Post extends PureComponent {
       });
   };
 
-  toggleOverlay = postId => {
-    this.setState({onShare: !this.state.onShare, sharePostId: postId});
+  toggleOverlay = id => {
+    // this.setState({onShare: !this.state.onShare, sharePostId: id});
+    this.props.navigation.navigate('SharePost', {
+      postId: id,
+      name: this.state.compareName,
+      usrId: this.props.usrid,
+    });
   };
 
   handleShare = userId => {
@@ -281,6 +297,22 @@ class Post extends PureComponent {
     });
   };
 
+  showLikedName = postId => {
+    let likeName = this.state.showing.filter(x => x._id === postId);
+    let ln = likeName.map(x => x.likes.map(y => y.username));
+    ln = ln[0].slice(1);
+    this.setState({
+      showMoreLikeName: ln,
+      // showLikeModal: !this.state.showLikedName,
+    });
+    // return <ShowMoreLikes demo={postId} />;
+    this.props.navigation.navigate('ShowMoreLikes', {id: postId});
+  };
+
+  hideLikeModal = () => {
+    this.setState({showLikeModal: false});
+  };
+
   render() {
     let showFollowUsers = [];
     if (this.state.searchFollowUser.length > 0) {
@@ -342,6 +374,7 @@ class Post extends PureComponent {
           modifiedSharedPost = {
             _id: sharedPost[0]._id,
             user: sharedPost[0].user,
+            userPhoto: sharedPost[0].userPhoto,
             post: sharedPost[0].post,
             postImage: sharedPost[0].postImage,
             time: x.sharedTime,
@@ -370,8 +403,8 @@ class Post extends PureComponent {
           value={this.state.searchFollowUser}
           containerStyle={{
             marginTop: 1,
-            backgroundColor: 'rgb(242, 245, 245)',
-            elevation: 30,
+            backgroundColor: 'rgb(245, 245, 245)',
+            elevation: 10,
             borderRadius: 5,
             borderBottomWidth: 3,
             borderColor: 'skyblue',
@@ -529,48 +562,99 @@ class Post extends PureComponent {
                     style={{flex: 1}}
                     containerStyle={{
                       flex: 1,
-                      // elevation: 5,
-                      backgroundColor: 'rgba(245, 245, 245,0.8)',
-                      // boxShadow: '100px 100px 100px 150px #000',
+                      elevation: 5,
+                      backgroundColor: 'rgb(250, 250, 250)',
+                      // boxShadow: '0px 0px 0px 150px #000',
                       marginBottom: 5,
 
-                      width: '100%',
-                      marginLeft: 0,
+                      // width: '97%',
+                      marginHorizontal: 6,
                     }}>
-                    <Text
-                      style={{
-                        color: 'skyblue',
-                        fontSize: 18,
-                        fontWeight: 'bold',
-                        borderBottomWidth: 0.2,
-                        borderColor: 'rgba(0,0,0,0.2)',
-                        // marginBottom: 0,
-                      }}>
+                    <View
+                    //  style={{borderBottomWidth: 0.2, borderColor: 'grey'}}
+                    >
                       {item.sharedBy ? (
-                        <Text>
-                          <Text style={{color: 'grey'}}>
+                        <View>
+                          <Text style={{fontSize: 17}}>
                             (Shared By : {item.sharedBy})
                           </Text>
-                          {'\n'}
-
-                          {item.user}
-                        </Text>
+                          <View style={{flexDirection: 'row'}}>
+                            <Image
+                              style={{
+                                height: 50,
+                                width: 50,
+                                marginTop: 10,
+                              }}
+                              borderRadius={25}
+                              resizeMode="cover"
+                              source={
+                                item.userPhoto && item.userPhoto !== 'null'
+                                  ? {
+                                      uri:
+                                        'http://192.168.0.108:3003/static/' +
+                                        item.userPhoto,
+                                    }
+                                  : require('../images/user.png')
+                              }
+                            />
+                            <Text
+                              style={{
+                                padding: 12,
+                                fontSize: 17,
+                                color: 'skyblue',
+                                fontWeight: 'bold',
+                              }}>
+                              {item.user}
+                            </Text>
+                          </View>
+                          <Text style={{marginLeft: 65, marginTop: -27}}>
+                            ({moment(new Date(item.time)).fromNow()})
+                          </Text>
+                        </View>
                       ) : (
-                        item.user
+                        <View>
+                          <View style={{flexDirection: 'row'}}>
+                            <Image
+                              style={{
+                                height: 50,
+                                width: 50,
+                                marginTop: 10,
+                              }}
+                              borderRadius={25}
+                              resizeMode="cover"
+                              source={
+                                item.userPhoto && item.userPhoto !== 'null'
+                                  ? {
+                                      uri:
+                                        'http://192.168.0.108:3003/static/' +
+                                        item.userPhoto,
+                                    }
+                                  : require('../images/user.png')
+                              }
+                            />
+                            <Text
+                              style={{
+                                padding: 17,
+                                fontSize: 17,
+                                color: 'skyblue',
+                                fontWeight: 'bold',
+                              }}>
+                              {item.user}
+                            </Text>
+                          </View>
+                          <Text style={{marginLeft: 65, marginTop: -23}}>
+                            ({moment(new Date(item.time)).fromNow()})
+                          </Text>
+                        </View>
                       )}
-                      {'\n\n'}
-                      <Text
-                        style={{
-                          color: 'black',
-                          fontWeight: 'normal',
-                          // marginBottom: -50,
-                        }}>
-                        {item.post && (
-                          <Text style={styles.postfrmt}>{item.post}</Text>
-                        )}
-                      </Text>
-                      {'\n'}
-                    </Text>
+                      <View>
+                        <Text style={item.post && {marginTop: 20}}>
+                          {item.post && (
+                            <Text style={{fontSize: 20}}>{item.post}</Text>
+                          )}
+                        </Text>
+                      </View>
+                    </View>
 
                     <View
                       style={{
@@ -584,9 +668,11 @@ class Post extends PureComponent {
                       {item.postImage && (
                         <Image
                           style={{
-                            height: 400,
+                            height: 390,
                             // marginTop: -8,
                             width: 390,
+                            marginBottom: 5,
+                            marginTop: 5,
                             // marginHorizontal: 0,
 
                             flex: 1,
@@ -596,9 +682,57 @@ class Post extends PureComponent {
                               'http://192.168.0.108:3003/static/' +
                               item.postImage,
                           }}
-                          resizeMode="center"
+                          resizeMode="contain"
                         />
                       )}
+                    </View>
+
+                    <View
+                      style={{
+                        flex: 1,
+                        // flexDirection: 'row',
+                        borderTopColor: 'grey',
+                        borderTopWidth: 0.2,
+                        // marginBottom: 5,
+                        marginTop: 10,
+                        // marginBottom: 5,
+                      }}>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          paddingTop: 10,
+                          paddingBottom: 5,
+                        }}>
+                        {item.likeCount > 0 && (
+                          <Text style={{fontWeight: 'bold', paddingRight: 5}}>
+                            Liked By:
+                          </Text>
+                        )}
+
+                        {item.likes &&
+                          item.likes.map(
+                            (x, i) => i === 0 && <Text>{x.username}</Text>,
+                          )}
+
+                        <View>
+                          <TouchableOpacity
+                            onPress={() => {
+                              this.showLikedName(item._id);
+                            }}
+                            // onPress={this.props.navigation.navigate('Likes')}
+                          >
+                            {item.likes && item.likeCount > 1 && (
+                              <Text style={{fontWeight: 'bold'}}>
+                                {' '}
+                                and {item.likes.length - 1}{' '}
+                                {item.likes.length - 1 === 1
+                                  ? 'other'
+                                  : 'others'}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                     </View>
 
                     <View
@@ -606,8 +740,8 @@ class Post extends PureComponent {
                         flexDirection: 'row',
                         justifyContent: 'space-between',
                         paddingTop: 10,
-                        borderTopWidth: 0.2,
-                        borderColor: 'rgba(0,0,0,0.2)',
+                        // borderTopWidth: 0.2,
+                        // borderColor: 'rgba(0,0,0,0.2)',
                       }}>
                       <View style={{}}>
                         {item.likes &&
@@ -637,7 +771,6 @@ class Post extends PureComponent {
                           </TouchableOpacity>
                         )}
                       </View>
-
                       <View style={{}}>
                         <TouchableOpacity
                           onPress={() => {
@@ -645,123 +778,8 @@ class Post extends PureComponent {
                           }}>
                           <Icon name="share" size={25} color="black" />
                         </TouchableOpacity>
-
-                        <Overlay
-                          isVisible={this.state.onShare === true}
-                          onBackdropPress={() => {
-                            this.toggleOverlay(item._id);
-                          }}
-                          fullScreen>
-                          {/* actual overlay content starts */}
-                          <View style={{flex: 1}}>
-                            <View>
-                              <SearchBar
-                                placeholder="Search "
-                                onChangeText={text => {
-                                  this.handleChange('searchShareUser', text);
-                                }}
-                                value={this.state.searchShareUser}
-                                containerStyle={{
-                                  backgroundColor: 'rgb(242, 245, 245)',
-                                  elevation: 30,
-                                  borderRadius: 5,
-                                  borderBottomWidth: 3,
-                                  borderColor: 'skyblue',
-                                }}
-                                platform="android"
-                              />
-                            </View>
-                            {/* share users list starts  */}
-                            <FlatList
-                              style={{marginTop: 10, flex: 1}}
-                              data={showShareUsers}
-                              renderItem={({item: itemed}) => (
-                                <ListItem
-                                  containerStyle={{
-                                    flex: 1,
-
-                                    marginBottom: 2,
-                                    elevation: 15,
-                                  }}
-                                  title={
-                                    <View
-                                      style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                      }}>
-                                      <Text style={{fontSize: 17}}>
-                                        {itemed.name}
-                                      </Text>
-                                      <TouchableOpacity
-                                        onPress={() => {
-                                          this.handleShare(itemed._id);
-                                        }}
-                                        style={{
-                                          backgroundColor: 'skyblue',
-                                          width: 50,
-                                          height: 40,
-                                          justifyContent: 'center',
-                                          borderRadius: 8,
-                                          elevation: 5,
-                                        }}
-                                        disabled={
-                                          this.state.disableShareButton ===
-                                          itemed._id
-                                        }>
-                                        {this.state.shareButtonText &&
-                                        this.state.disableShareButton ===
-                                          itemed._id ? (
-                                          <Text
-                                            style={{
-                                              color: 'black',
-                                              textAlign: 'center',
-                                            }}>
-                                            Sent
-                                          </Text>
-                                        ) : (
-                                          <Text
-                                            style={{
-                                              color: 'white',
-                                              textAlign: 'center',
-                                            }}>
-                                            Share
-                                          </Text>
-                                        )}
-                                      </TouchableOpacity>
-                                    </View>
-                                  }
-                                  bottomDivider
-                                />
-                              )}
-                              keyExtractor={itemed => itemed._id}
-                              extraData={showShareUsers}
-                            />
-
-                            <View style={{flex: 1, marginTop: 40}}>
-                              <Text style={{textAlign: 'center', fontSize: 18}}>
-                                {this.state.searchShareUser.length > 0 &&
-                                showShareUsers.length == 0 ? (
-                                  <Text>No matching users found</Text>
-                                ) : showShareUsers.length === 0 ? (
-                                  <Text>
-                                    {' '}
-                                    Follow some users to share posts{' :) '}
-                                  </Text>
-                                ) : (
-                                  <> </>
-                                )}
-                              </Text>
-                            </View>
-
-                            {/* share user list ends  */}
-                          </View>
-                          {/* overlay content ends  */}
-                        </Overlay>
                       </View>
-
                       {/* sharepost ends  */}
-
                       <View style={{}}>
                         {this.state.compareName === item.user && (
                           <TouchableOpacity
@@ -839,9 +857,11 @@ var styles = StyleSheet.create({
   },
 
   postfrmt: {
-    fontSize: 20,
-    // fontWeight: 'bold',
-    // lineHeight: 40,
+    fontSize: 21,
+    color: 'black',
+    fontWeight: 'normal',
+    // marginBottom: -20,
+
     // marginTop: 50,
     // marginVertical: 30,
     // paddingVertical: 30,
